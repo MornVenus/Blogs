@@ -1,0 +1,43 @@
+<RCC>
+    <qresource prefix="/styles">
+        <file>style.qss</file>
+    </qresource>
+    <qresource prefix="/images">
+        <file>images/head.png</file>
+        <file>images/init.png</file>
+        <file>images/autotask.png</file>
+        <file>images/d.png</file>
+        <file>images/debug.png</file>
+        <file>images/exception.png</file>
+        <file>images/flash.png</file>
+        <file>images/hardware.png</file>
+        <file>images/level.png</file>
+        <file>images/ok.png</file>
+        <file>images/poweroff.png</file>
+        <file>images/query.png</file>
+        <file>images/refresh.png</file>
+        <file>images/registered.png</file>
+        <file>images/setting.png</file>
+        <file>images/start.png</file>
+        <file>images/stop.png</file>
+        <file>images/temperature.png</file>
+        <file>images/timing.png</file>
+        <file>images/vol.png</file>
+        <file>images/check.png</file>
+        <file>images/loop.png</file>
+        <file>images/pattern.png</file>
+        <file>images/power.png</file>
+        <file>images/report.png</file>
+        <file>images/temp.png</file>
+        <file>images/down.png</file>
+        <file>images/error.png</file>
+        <file>images/fan.png</file>
+        <file>images/heart.png</file>
+        <file>images/modify.png</file>
+        <file>images/query2.png</file>
+        <file>images/socket.png</file>
+        <file>images/temper.png</file>
+        <file>images/unknown.png</file>
+        <file>images/upgrade.png</file>
+    </qresource>
+</RCC>
