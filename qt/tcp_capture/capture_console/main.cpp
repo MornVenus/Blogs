@@ -51,16 +51,49 @@ QString getDeviceFriendName(const char *devName)
 
 void packet_handler(u_char* param, const struct pcap_pkthdr* header, const u_char* pkt_data)
 {
-    Q_UNUSED(param);
-    Q_UNUSED(pkt_data);
+    Q_UNUSED(param)
+    Q_UNUSED(pkt_data)
+
+    uint len = header->len;
+    if (len < 55) return; // tcp packet must be larger than 54
+
+    int offset = 0;
+    // 以太网
+    if (pkt_data[12] == 8 && pkt_data[13] == 0)
+    {
+        // ipv4数据包
+        offset = 14;
+    }
+    else {
+        if (pkt_data[0] == 2 && pkt_data[1] == 0 && pkt_data[2] == 0 && pkt_data[3] == 0)
+        {
+            // loop back
+            offset = 4;
+        }
+        else
+            return;
+    }
+
+    // ip
+    int ip_pack_total_len = pkt_data[offset+2] * 256 + pkt_data[offset+3];
+    u_char ip_len = (pkt_data[offset] & 15) * 4;
+    offset += ip_len;
+
+    // tcp
+    u_char tcp_len = (((pkt_data[offset + 12]) >> 4) & 15) * 4;
+    offset += tcp_len;
+
+    int payload_len = ip_pack_total_len - ip_len - tcp_len;
+
+    qDebug() << QString("data len: %1").arg(payload_len);
 
     // struct tm* ltime;
     // char timestr[16];
     // time_t local_tv_sec;
 
-    uint len = header->len;
-    QString str = QString::asprintf("%ld:%ld (%ld)", header->ts.tv_sec, header->ts.tv_usec, len);
-    qDebug() << str;
+
+    // QString str = QString::asprintf("%ld:%ld (%ld)", header->ts.tv_sec, header->ts.tv_usec, len);
+    // qDebug() << str;
 }
 
 
@@ -92,7 +125,12 @@ int main(int argc, char *argv[])
     {
         QString devName = getDeviceFriendName(dev->name);
         devNames.append(devName);
-        lastName = dev->name;
+        if (devName == "以太网")
+        {
+            lastName = dev->name;
+        }
+
+        qDebug() << devName;
         dev = dev->next;
     }
 
@@ -110,7 +148,7 @@ int main(int argc, char *argv[])
     // set filter
     struct bpf_program fcode;
     int res = 0;
-    if ((res = pcap_compile(adapter, &fcode, "tcp port 3000", 1, PCAP_NETMASK_UNKNOWN)) < 0)
+    if ((res = pcap_compile(adapter, &fcode, "tcp port 10000", 1, PCAP_NETMASK_UNKNOWN)) < 0)
     {
         qDebug() << "fail to compile:" << pcap_statustostr(res);
         pcap_close(adapter);
