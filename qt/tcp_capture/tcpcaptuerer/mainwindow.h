@@ -15,6 +15,8 @@
 #include "views/powerview.h"
 #include <QDialog>
 #include "myfiltermodel.h"
+#include <QMenu>
+#include <QClipboard>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -100,6 +102,9 @@ private slots:
     void on_analysisDataBtn_clicked();
 
     void on_importAction_triggered();
+
+    void on_tcp_listview_contextmenu(const QPoint& pos);
+
 
 private:
     Ui::MainWindow *ui;

@@ -44,6 +44,7 @@ public:
                     queue.push_back(ch);
                 }
                 else {
+                    s = START_S;
                     queue.clear();
                 }
                 break;
@@ -54,6 +55,7 @@ public:
                     queue.push_back(ch);
                 }
                 else {
+                    s = START_S;
                     queue.clear();
                 }
                 break;
@@ -64,6 +66,7 @@ public:
                     queue.push_back(ch);
                 }
                 else {
+                    s = START_S;
                     queue.clear();
                 }
                 break;
@@ -74,22 +77,29 @@ public:
                     queue.push_back(ch);
                 }
                 else {
+                    s = START_S;
                     queue.clear();
                 }
                 break;
             case END_E:
+                queue.push_back(ch);
                 if (ch == 'E')
                 {
                     s = (Step)(s + 1);
                 }
-                queue.push_back(ch);
                 break;
             case END_N:
+                queue.push_back(ch);
+
                 if (ch == 'N')
                 {
                     s = (Step)(s + 1);
                 }
-                queue.push_back(ch);
+                else
+                {
+                    s = END_E;
+                }
+
                 break;
             case END_D:
                 queue.push_back(ch);
@@ -110,6 +120,10 @@ public:
                     packet->dstPort = tempPacket->dstPort;
                     packet->data = array;
                     result.append(packet);
+                }
+                else
+                {
+                    s = END_E;
                 }
                 break;
             default:
