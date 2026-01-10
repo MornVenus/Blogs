@@ -133,7 +133,8 @@ void MainWindow::onPacketReceived(Packet *packet)
     model.time = timeStr;
     model.datType = QString("%1(0x%2)").arg(dataTypeStr).arg(static_cast<int>(dataType), 0, 16);
     model.isSrc = packet->dstPort == service->port;
-    if (dataType < m_avatars.size())
+
+    if (static_cast<unsigned char>(dataType) < m_avatars.size())
         model.avatar = m_avatars.at(dataType);
     else
         model.avatar = "unknown";
@@ -251,11 +252,9 @@ void MainWindow::do_currentRow_changed(const QModelIndex& current, const QModelI
 
 void MainWindow::on_clearBtn_clicked()
 {
-    tcpListModel->clear();
-    // ui->tcpListView->clear
     qDeleteAll(m_packList);
     m_packList.clear();
-    // tcpListModel->removeRows(0, tcpListModel->rowCount());
+    tcpListModel->clear();
 }
 
 
