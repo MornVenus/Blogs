@@ -39,7 +39,9 @@ public:
 
     void clear()
     {
+        beginResetModel();
         m_list.clear();
+        endResetModel();
     }
 
     QVariant data(const QModelIndex &index, int role) const override

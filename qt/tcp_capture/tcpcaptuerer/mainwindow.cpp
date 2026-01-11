@@ -12,10 +12,13 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
-    qDebug() << "~MainWindow";
+    if (m_senderFile)
+    {
+        m_senderFile->close();
+        m_senderFile = nullptr;
+    }
     if (ui->startStopBtn->isChecked())
     {
-        qDebug() << "stop";
         service->stopCapture();
     }
     service->wait(); // 没有这个会出现奔溃 因为相当于主线程退出了，子线程还没结束。
@@ -30,30 +33,34 @@ void MainWindow::init()
     ui->comboBoxNetAdapter->setCurrentIndex(devNames.length() - 1);
     packDataService = new PackDataService(this);
 
-    // connect(service,  qOverload<TcpPacket*>(&TcpCaptureService::packetReceived), this, &MainWindow::onTcpPackReceived);
+    ui->tcpListView->setContextMenuPolicy(Qt::CustomContextMenu);
+
     connect(service, qOverload<Packet*>(&TcpCaptureService::packetReceived), packDataService, &PackDataService::append);
     connect(packDataService, &PackDataService::packetReceived, this, &MainWindow::onPacketReceived);
+    connect(ui->tcpListView, &QListView::customContextMenuRequested, this, &MainWindow::on_tcp_listview_contextmenu);
 
     tcpListModel = new PackListModel(this);
-    // ui->tcpListView->setModel(tcpListModel);
-
-
+    ui->tcpListView->setModel(tcpListModel);
 
     delegate = new PackDelegate(this);
     ui->tcpListView->setItemDelegate(delegate);
 
-    m_filterProxy = new MyFilterModel(this);
-    m_filterProxy->setSourceModel(tcpListModel);
+    // m_filterProxy = new MyFilterModel(this);
+    // m_filterProxy->setSourceModel(tcpListModel);
 
-    ui->tcpListView->setModel(m_filterProxy);
+    // ui->tcpListView->setModel(m_filterProxy);
 
-    selModel = new QItemSelectionModel(m_filterProxy);
+    selModel = new QItemSelectionModel(tcpListModel);
     ui->tcpListView->setSelectionModel(selModel);
 
     connect(selModel, &QItemSelectionModel::currentRowChanged, this, &MainWindow::do_currentRow_changed);
 
     initAvatars();
+
+    m_senderFile = new QFile("sender.dat", this);
+    m_senderFile->open(QIODevice::ReadWrite);
 }
+
 
 void MainWindow::initAvatars()
 {
@@ -97,16 +104,6 @@ void MainWindow::on_startStopBtn_clicked(bool checked)
     }
 }
 
-void MainWindow::onTcpPackReceived(TcpPacket *packet)
-{
-    Q_UNUSED(packet)
-    // m_packetList.append(packet);
-    // // 添加一个 item
-    // tcpListModel->insertRow(tcpListModel->rowCount());
-    // QModelIndex index = tcpListModel->index(tcpListModel->rowCount() - 1, 0);
-    // tcpListModel->setData(index, packet->length());
-}
-
 void MainWindow::onPacketReceived(Packet *packet)
 {
     m_packList.append(packet);
@@ -129,11 +126,15 @@ void MainWindow::onPacketReceived(Packet *packet)
     model.time = timeStr;
     model.datType = QString("%1(0x%2)").arg(dataTypeStr).arg(static_cast<int>(dataType), 0, 16);
     model.isSrc = packet->dstPort == service->port;
-    if (dataType < m_avatars.size())
+
+    if (static_cast<unsigned char>(dataType) < m_avatars.size())
         model.avatar = m_avatars.at(dataType);
     else
         model.avatar = "unknown";
 
+    qDebug() << "before: " << m_senderFile->pos();
+    m_senderFile->write(packet->data);
+    qDebug() << "after: " << m_senderFile->pos();
     // 校验数据包是否正常
     if (model.length < 24)
     {
@@ -160,7 +161,7 @@ void MainWindow::onPacketReceived(Packet *packet)
     tcpListModel->setData(index, QVariant::fromValue(model));
 
     // 刷新代理模型
-    m_filterProxy->invalidate();  // 触发代理模型的重新计算
+    // m_filterProxy->invalidate();  // 触发代理模型的重新计算
     // QString str = QString("%1  %2->%3 %4").arg(timeStr).arg(packet->srcPort).arg(packet->dstPort).arg(packet->data.length());
     // tcpListModel->setData(index, str);
 }
@@ -193,6 +194,21 @@ void MainWindow::do_currentRow_changed(const QModelIndex& current, const QModelI
         QString param = getHexString(data, 7, 5);
         QString length = getHexString(data, 13, 8);
         QString dataStr = getHexString(data, 21, data.length() - 24);
+        QString allStr = getHexString(data, 0, data.length());
+
+
+        QFile file("output.txt");
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            qDebug() << "open file failed";
+            return;
+        }
+
+        QTextStream out(&file);
+        out << allStr;
+
+        file.close();
+
+
         QString str = QString("%1 0x53 0x54 0x41 0x52 0x54(START)\n\n" // Start
                               "%2 0\n\n" // Version
                               "%3 %4\n\n" // DataType
@@ -232,11 +248,9 @@ void MainWindow::do_currentRow_changed(const QModelIndex& current, const QModelI
 
 void MainWindow::on_clearBtn_clicked()
 {
-    tcpListModel->clear();
-    // ui->tcpListView->clear
     qDeleteAll(m_packList);
     m_packList.clear();
-    // tcpListModel->removeRows(0, tcpListModel->rowCount());
+    tcpListModel->clear();
 }
 
 
@@ -271,5 +285,36 @@ void MainWindow::on_importAction_triggered()
         // 导入 wireshark的cap文件
         service->importCapFile(file, port);
     }
+}
+
+void MainWindow::on_tcp_listview_contextmenu(const QPoint &pos)
+{
+    QModelIndex index = ui->tcpListView->indexAt(pos);
+
+    if (!index.isValid()) return;
+
+    QMenu menu(this);
+
+    QAction *copyDataAction = menu.addAction("copy");
+    // QAction *copyValueAction = menu.addAction("copy value");
+    QAction* selected = menu.exec(ui->tcpListView->viewport()->mapToGlobal(pos));
+
+    if (selected == copyDataAction)
+    {
+
+        if (index.row() < m_packList.size())
+        {
+            auto packet = m_packList[index.row()];
+            auto data = packet->data;
+            QString dataStr = getHexString(data, 0, data.length());
+            QClipboard *clipboard = QGuiApplication::clipboard();
+            clipboard->setText(dataStr);
+        }
+
+    }
+    // else if (selected == copyValueAction)
+    // {
+    //     qDebug() << "copy value";
+    // }
 }
 
