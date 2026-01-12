@@ -17,6 +17,7 @@
 #include "myfiltermodel.h"
 #include <QMenu>
 #include <QClipboard>
+#include <QFile>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -93,7 +94,6 @@ public:
 
 private slots:
     void on_startStopBtn_clicked(bool checked);
-    void onTcpPackReceived(TcpPacket* packet);
     void onPacketReceived(Packet* packet);
     void do_currentRow_changed(const QModelIndex& current, const QModelIndex& previous);
 
@@ -120,6 +120,9 @@ private:
     PackDelegate* delegate;
     QStringList m_avatars;
     MyFilterModel* m_filterProxy = nullptr;
+
+    QFile* m_senderFile = nullptr;
+    QFile* m_recvFile = nullptr;
 
 private:
     void init();

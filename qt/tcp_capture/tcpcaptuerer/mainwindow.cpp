@@ -12,10 +12,13 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
-    qDebug() << "~MainWindow";
+    if (m_senderFile)
+    {
+        m_senderFile->close();
+        m_senderFile = nullptr;
+    }
     if (ui->startStopBtn->isChecked())
     {
-        qDebug() << "stop";
         service->stopCapture();
     }
     service->wait(); // 没有这个会出现奔溃 因为相当于主线程退出了，子线程还没结束。
@@ -32,15 +35,12 @@ void MainWindow::init()
 
     ui->tcpListView->setContextMenuPolicy(Qt::CustomContextMenu);
 
-    // connect(service,  qOverload<TcpPacket*>(&TcpCaptureService::packetReceived), this, &MainWindow::onTcpPackReceived);
     connect(service, qOverload<Packet*>(&TcpCaptureService::packetReceived), packDataService, &PackDataService::append);
     connect(packDataService, &PackDataService::packetReceived, this, &MainWindow::onPacketReceived);
     connect(ui->tcpListView, &QListView::customContextMenuRequested, this, &MainWindow::on_tcp_listview_contextmenu);
 
     tcpListModel = new PackListModel(this);
     ui->tcpListView->setModel(tcpListModel);
-
-
 
     delegate = new PackDelegate(this);
     ui->tcpListView->setItemDelegate(delegate);
@@ -56,6 +56,9 @@ void MainWindow::init()
     connect(selModel, &QItemSelectionModel::currentRowChanged, this, &MainWindow::do_currentRow_changed);
 
     initAvatars();
+
+    m_senderFile = new QFile("sender.dat", this);
+    m_senderFile->open(QIODevice::ReadWrite);
 }
 
 
@@ -101,16 +104,6 @@ void MainWindow::on_startStopBtn_clicked(bool checked)
     }
 }
 
-void MainWindow::onTcpPackReceived(TcpPacket *packet)
-{
-    Q_UNUSED(packet)
-    // m_packetList.append(packet);
-    // // 添加一个 item
-    // tcpListModel->insertRow(tcpListModel->rowCount());
-    // QModelIndex index = tcpListModel->index(tcpListModel->rowCount() - 1, 0);
-    // tcpListModel->setData(index, packet->length());
-}
-
 void MainWindow::onPacketReceived(Packet *packet)
 {
     m_packList.append(packet);
@@ -139,6 +132,9 @@ void MainWindow::onPacketReceived(Packet *packet)
     else
         model.avatar = "unknown";
 
+    qDebug() << "before: " << m_senderFile->pos();
+    m_senderFile->write(packet->data);
+    qDebug() << "after: " << m_senderFile->pos();
     // 校验数据包是否正常
     if (model.length < 24)
     {
