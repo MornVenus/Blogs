@@ -20,7 +20,7 @@ public:
     {
         QRect rect(option.rect.left() + 2, option.rect.top() + 2, option.rect.width() - 4, option.rect.height() - 4);
 
-        auto model = index.data().value<PackModel>();
+        auto model = index.data(Qt::DisplayRole).value<PackModel>();
         // if (model.datType == "Initialize(0x13)")
         // {
         //     return;

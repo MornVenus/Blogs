@@ -12,11 +12,14 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+
+
     if (m_senderFile)
     {
         m_senderFile->close();
         m_senderFile = nullptr;
     }
+
     if (ui->startStopBtn->isChecked())
     {
         service->stopCapture();
@@ -107,9 +110,13 @@ void MainWindow::on_startStopBtn_clicked(bool checked)
 void MainWindow::onPacketReceived(Packet *packet)
 {
     m_packList.append(packet);
+
     // 添加一个 item
-    tcpListModel->insertRow(tcpListModel->rowCount());
-    QModelIndex index = tcpListModel->index(tcpListModel->rowCount() - 1, 0);
+    // tcpListModel->beginInsertRows(QModelIndex(), tcpListModel->rowCount(), tcpListModel->rowCount());
+    // tcpListModel->endInsertRows();
+
+    // tcpListModel->insertRow(tcpListModel->rowCount());
+    // QModelIndex index = tcpListModel->index(tcpListModel->rowCount() - 1, 0);
 
     qint64 sec = packet->tick / 1000000;
     qint64 usec = packet->tick % 1000000;
@@ -132,9 +139,10 @@ void MainWindow::onPacketReceived(Packet *packet)
     else
         model.avatar = "unknown";
 
-    qDebug() << "before: " << m_senderFile->pos();
-    m_senderFile->write(packet->data);
-    qDebug() << "after: " << m_senderFile->pos();
+    // 先不往文件里写，写加到列表中
+    // qDebug() << "before: " << m_senderFile->pos();
+    // m_senderFile->write(packet->data);
+    // qDebug() << "after: " << m_senderFile->pos();
     // 校验数据包是否正常
     if (model.length < 24)
     {
@@ -158,7 +166,25 @@ void MainWindow::onPacketReceived(Packet *packet)
         }
     }
 
-    tcpListModel->setData(index, QVariant::fromValue(model));
+    tcpListModel->append(model);
+
+    // tcpListModel->setData(index, QVariant::fromValue(model));
+
+    // QSqlQuery query;
+    // query.prepare("insert into packets(role, time, type, len, file, start, finish)"
+    //               "values(:role, :time, :type, :len, :file, :start, :finish)");
+
+    // query.bindValue(":role", model.isSrc ? 0 : 1);
+    // query.bindValue(":time", model.time);
+    // query.bindValue(":type", static_cast<int>(dataType));
+    // query.bindValue(":len", model.length);
+    // query.bindValue(":file", 1);
+    // query.bindValue(":start", 0);
+    // query.bindValue(":finish", model.length - 1);
+
+    // if (!query.exec()) {
+    //     qDebug() << "插入失败:" << query.lastError().text();
+    // }
 
     // 刷新代理模型
     // m_filterProxy->invalidate();  // 触发代理模型的重新计算
@@ -168,7 +194,8 @@ void MainWindow::onPacketReceived(Packet *packet)
 
 void MainWindow::do_currentRow_changed(const QModelIndex& current, const QModelIndex& previous)
 {
-    Q_UNUSED(previous);
+    return;
+    Q_UNUSED(previous)
     if (!current.isValid()) return;
     if (current.row() < m_packList.size())
     {

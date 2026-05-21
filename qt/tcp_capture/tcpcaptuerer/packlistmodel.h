@@ -5,6 +5,8 @@
 #include <QObject>
 #include <QDebug>
 #include <QPixmap>
+#include <QtSql>
+#include <QDataWidgetMapper>
 
 struct PackModel
 {
@@ -24,61 +26,109 @@ class PackListModel : public QAbstractListModel
 public:
     explicit PackListModel(QObject *parent = nullptr):QAbstractListModel{parent}
     {
+        m_db = QSqlDatabase::addDatabase("QSQLITE"); // 添加SQLITE数据库驱动
+        m_db.setDatabaseName("captures.db");
+        if (m_db.open())
+        {
+            qDebug() << "success to open the database";
+        }
+        else
+            qDebug() << "fail to open the database";
+    }
 
+    ~PackListModel()
+    {
+        if (m_db.isValid() && m_db.isOpen())
+        {
+            m_db.close();
+        }
     }
 private:
     QList<PackModel> m_list;
+    QSqlDatabase  m_db;   //数据库
+    int _cnt{0};
 
 
 public:
     int rowCount(const QModelIndex &parent = QModelIndex()) const override
     {
         Q_UNUSED(parent);
-        return m_list.size();
-    }
-
-    void clear()
-    {
-        beginResetModel();
-        m_list.clear();
-        endResetModel();
+        return _cnt;
     }
 
     QVariant data(const QModelIndex &index, int role) const override
     {
         Q_UNUSED(role)
+
+        if (role != Qt::DisplayRole) return {};
+
         int row = index.row();
-        if (row >= m_list.size())
+        if (row >= _cnt)
         {
-            return QVariant();
+            return {};
         }
-        // return m_list.at(row);
+
+        // 从数据库中读取
+        QSqlQuery query;
+        query.prepare("select * from packets where id = :id");
+        query.bindValue(":id", row + 1);
+        query.exec();
+        if (query.isValid()) {
+            qDebug() << "从数据库中获取到数据了";
+        } else {
+            qDebug() << "获取数据失败";
+        }
+
         PackModel model = m_list.at(row);
         return QVariant::fromValue(model);
     }
 
-    // QAbstractItemModel interface
-public:
-    // QModelIndex index(int row, int column, const QModelIndex &parent) const override
+    // bool setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole) override
     // {
-    //     QModelIndex index(row, column, parent);
-    //     return index;
+    //     Q_UNUSED(role)
+    //     if (index.row() <0 || index.row() >= m_list.size()) return false;
+    //     PackModel model = value.value<PackModel>();
+    //     m_list[index.row()] = model;
+    //     return true;
     // }
-    bool setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole) override
+
+    void clear()
     {
-        Q_UNUSED(role)
-        if (index.row() <0 || index.row() >= m_list.size()) return false;
-        PackModel model = value.value<PackModel>();
-        m_list[index.row()] = model;
-        return true;
+        _cnt = 0;
+        beginResetModel();
+        m_list.clear();
+        endResetModel();
     }
-    bool insertRows(int row, int count, const QModelIndex &parent) override
+
+    void append(PackModel model)
     {
-        if (row < 0 || row > m_list.size()) return false;
-        beginInsertRows(parent, row, row + count - 1);
-        m_list.insert(row, PackModel());
+        const int row = m_list.size();
+
+        beginInsertRows(QModelIndex(), row, row);
+        // 写入到数据库？ 只要维护一个 _cnt 就可以了？
+
+        _cnt++;
+        m_list.append(model);
+
+        QSqlQuery query;
+        query.prepare("insert into packets(role, time, type, len, file, start, finish)"
+                      "values(:role, :time, :type, :len, :file, :start, :finish)");
+
+        query.bindValue(":role", model.isSrc ? 0 : 1);
+        query.bindValue(":time", model.time);
+        query.bindValue(":type", static_cast<int>(1));
+        query.bindValue(":len", model.length);
+        query.bindValue(":file", 1);
+        query.bindValue(":start", 0);
+        query.bindValue(":finish", model.length - 1);
+
+        if (!query.exec()) {
+            qDebug() << "插入失败:" << query.lastError().text();
+        }
+        else {
+            // _cnt++;
+        }
         endInsertRows();
-        return true;
     }
 };
 
